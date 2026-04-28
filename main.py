@@ -18,7 +18,12 @@ st.markdown(
         font-weight: bold;
         border: 2px solid #ed1c24;
     }
-    div[data-testid="stMetricValue"] { font-size: 28px; color: #0e1117; font-weight: bold; }
+    div[data-testid="stMetricValue"],
+    div[data-testid="stMetricValue"] * {
+        font-size: 28px;
+        color: inherit !important;
+        font-weight: bold;
+    }
     </style>
     """,
     unsafe_allow_html=True,
