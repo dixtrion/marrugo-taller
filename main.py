@@ -44,6 +44,9 @@ if "banco" not in st.session_state:
 if "potencia_maquina" not in st.session_state:
     st.session_state.potencia_maquina = 3.0
 
+if "material" not in st.session_state:
+    st.session_state.material = None
+
 
 def decimal_a_fraccion(decimal):
     """Convierte decimales a la fracción comercial más cercana en octavos"""
@@ -139,13 +142,16 @@ potencia_input = st.sidebar.number_input(
 )
 st.session_state.potencia_maquina = potencia_input
 potencia_valida = obtener_potencia_valida(potencia_input)
+if st.session_state.material:
+    st.session_state.banco["mat"] = st.session_state.material
 st.sidebar.success(f"✅ Sistema operando a {potencia_valida} HP")
 
 # Resumen del Banco
 st.sidebar.header("📍 Resumen del Banco")
 st.sidebar.markdown(f"**Tubo:** {st.session_state.banco['pulg'] or '---'}")
 st.sidebar.markdown(f"**Calibre:** {st.session_state.banco['cal'] or '---'}")
-st.sidebar.markdown(f"**Material:** {st.session_state.banco['mat'] or '---'}")
+material_actual = st.session_state.material or st.session_state.banco["mat"]
+st.sidebar.markdown(f"**Material:** {material_actual or '---'}")
 
 if st.sidebar.button("🧹 Limpiar Banco"):
     st.session_state.banco = {"pulg": None, "cal": None, "mat": None}
@@ -210,7 +216,8 @@ with tabs[2]:
         # Mostrar validación según estado
         if diagnostico["estado"] == "seguro":
             st.success(diagnostico["mensaje"])
-            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_seguro")
+            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="material")
+            st.session_state.material = mat
             st.session_state.banco["mat"] = mat
             
             col1, col2 = st.columns(2)
@@ -227,7 +234,8 @@ with tabs[2]:
             st.markdown(diagnostico["alerta"])
             
             if st.checkbox("Continuar bajo responsabilidad del operador"):
-                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_critico")
+                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="material")
+                st.session_state.material = mat
                 st.session_state.banco["mat"] = mat
                 
                 col1, col2 = st.columns(2)
