@@ -4,7 +4,7 @@ import math
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Sistema Marrugo Pro", page_icon="🛠️", layout="centered")
 
-# Estilo Industrial Personalizado (TU DISEÑO ORIGINAL)
+# Estilo Industrial Personalizado
 st.markdown(
     """
     <style>
@@ -15,7 +15,7 @@ st.markdown(
         height: 3.5em; 
         background-color: #0e1117; 
         color: white; 
-        font-weight: bold;
+        font-weight: bold; 
         border: 2px solid #ed1c24;
     }
     div[data-testid="stMetricValue"],
@@ -55,35 +55,31 @@ def decimal_a_fraccion(decimal):
     residuo = round(decimal - entero, 3)
     cercano = min(fracciones.keys(), key=lambda x: abs(x - residuo))
     frac_txt = fracciones[cercano]
-    if entero > 0:
-        return f"{entero} {frac_txt}".strip()
-    return frac_txt if frac_txt else "0"
+    return f"{entero} {frac_txt}".strip() if entero > 0 else (frac_txt if frac_txt else "0")
 
 def validar_capacidad_maquina(calibre_usuario):
     potencia = st.session_state.potencia_maquina
     capacidad = CAPACIDADES_INDUSTRIALES[potencia]
     calibre_num = int(calibre_usuario)
-    
     if calibre_num >= capacidad["calibre_seguro"]:
         return {"estado": "seguro", "mensaje": f"🟢 OPERACIÓN NORMAL - Calibre Ga {calibre_num} dentro de rango seguro para {potencia} HP", "alerta": None}
     elif calibre_num >= capacidad["calibre_critico"]:
-        return {"estado": "critico", "mensaje": "⚠️ ADVERTENCIA CRÍTICA", "alerta": f"¡PELIGRO! Riesgo inminente de rotura de sellos hidráulicos y daño estructural para dobladora de {potencia} HP.\n\nCálculo continuará bajo responsabilidad del operador."}
+        return {"estado": "critico", "mensaje": "⚠️ ADVERTENCIA CRÍTICA", "alerta": f"¡PELIGRO! Riesgo inminente de rotura de sellos hidráulicos para dobladora de {potencia} HP.\n\nCálculo continuará bajo responsabilidad del operador."}
     else:
-        potencia_recomendada = next((hp for hp, specs in sorted(CAPACIDADES_INDUSTRIALES.items()) if calibre_num >= specs["calibre_critico"]), max(CAPACIDADES_INDUSTRIALES.keys()))
-        return {"estado": "error", "mensaje": "🚨 ERROR DE CAPACIDAD", "alerta": f"Esta labor requiere una máquina de mayor potencia.\n\nCalibre Ga {calibre_num} INCOMPATIBLE con dobladora de {potencia} HP.\n\n**RECOMENDACIÓN:** Utilizar al menos dobladora de {potencia_recomendada} HP para trabajar Calibre Ga {calibre_num} de forma segura."}
+        potencia_rec = next((hp for hp, specs in sorted(CAPACIDADES_INDUSTRIALES.items()) if calibre_num >= specs["calibre_critico"]), max(CAPACIDADES_INDUSTRIALES.keys()))
+        return {"estado": "error", "mensaje": f"🚨 ERROR DE CAPACIDAD", "alerta": f"Esta labor requiere mayor potencia. Calibre Ga {calibre_num} INCOMPATIBLE con {potencia} HP.\n\n**RECOMENDACIÓN:** Utilizar al menos dobladora de {potencia_rec} HP."}
 
 # --- INTERFAZ PRINCIPAL ---
 st.title("🛠️ Sistema Técnico Marrugo")
 st.write("Control de Calidad e Ingeniería de Doblado")
 
-# --- BARRA LATERAL (CON EL ÚNICO CAMBIO DEL SELECTBOX) ---
+# --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Configuración de Máquina")
 opciones_hp = [3.0, 5.0, 7.5, 10.0]
 st.session_state.potencia_maquina = st.sidebar.selectbox(
     "Potencia de Dobladora (HP):",
     options=opciones_hp,
-    index=opciones_hp.index(st.session_state.potencia_maquina) if st.session_state.potencia_maquina in opciones_hp else 0,
-    help="Seleccione la potencia de su máquina."
+    index=opciones_hp.index(st.session_state.potencia_maquina) if st.session_state.potencia_maquina in opciones_hp else 0
 )
 st.sidebar.success(f"✅ Sistema operando a {st.session_state.potencia_maquina} HP")
 
@@ -97,9 +93,18 @@ if st.sidebar.button("🧹 Limpiar Banco"):
     st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("<div style='text-align: center; color: gray; font-size: 0.85em;'>Desarrollado por:<br><strong>Dixtrion Electronic</strong><br>marrugonelson@gmail.com</div>", unsafe_allow_html=True)
+st.sidebar.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 0.85em;'>
+        Desarrollado por:<br>
+        <strong style='color: #0e1117;'>Dixtrion Electronic</strong><br>
+        <a href='mailto:marrugonelson@gmail.com' style='color: #ed1c24; text-decoration: none;'>marrugonelson@gmail.com</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-# Organización por pestañas (TU DISEÑO VISUAL RESTAURADO)
+# Pestañas
 tabs = st.tabs(["📏 Medición", "📐 Calibre", "🚀 Diagnóstico", "📐 Geometría"])
 
 with tabs[0]:
@@ -123,32 +128,31 @@ with tabs[2]:
     st.write("### Verificación Final")
     if st.session_state.banco["pulg"] and st.session_state.banco["cal"]:
         cal = st.session_state.banco["cal"]
-        diagnostico = validar_capacidad_maquina(cal)
+        diag = validar_capacidad_maquina(cal)
         
-        if diagnostico["estado"] == "seguro":
-            st.success(diagnostico["mensaje"])
+        if diag["estado"] == "seguro":
+            st.success(diag["mensaje"])
             mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_selector_key", on_change=sync_material)
             st.session_state.banco["mat"] = mat
-            col1, col2 = st.columns(2)
-            col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
-            col2.metric("ESPESOR REAL", f"Ga {cal}")
+            c1, c2 = st.columns(2)
+            c1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
+            c2.metric("ESPESOR REAL", f"Ga {cal}")
             if mat == "Galvanizado": st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
             else: st.success("🟢 AVISO: Acero Negro maleable. Óptimo para sistemas de escape.")
         
-        elif diagnostico["estado"] == "critico":
-            st.error(diagnostico["mensaje"])
-            st.markdown(diagnostico["alerta"])
+        elif diag["estado"] == "critico":
+            st.error(diag["mensaje"])
+            st.markdown(diag["alerta"])
             if st.checkbox("Continuar bajo responsabilidad del operador"):
                 mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_selector_key", on_change=sync_material)
                 st.session_state.banco["mat"] = mat
-                col1, col2 = st.columns(2)
-                col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
-                col2.metric("ESPESOR REAL", f"Ga {cal}")
+                c1, c2 = st.columns(2)
+                c1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
+                c2.metric("ESPESOR REAL", f"Ga {cal}")
                 if mat == "Galvanizado": st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
                 else: st.success("🟢 AVISO: Acero Negro maleable. Óptimo para sistemas de escape.")
         else:
-            st.error(diagnostico["mensaje"])
-            st.markdown(diagnostico["alerta"])
+            st.error(diag["mensaje"]); st.markdown(diag["alerta"])
     else:
         st.warning("⚠️ Faltan datos. Ingrese medida y calibre en las pestañas anteriores.")
 
