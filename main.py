@@ -71,7 +71,7 @@ def validar_capacidad_maquina(calibre_usuario):
 
 # --- INTERFAZ PRINCIPAL ---
 st.title("🛠️ Sistema Técnico Marrugo")
-st.write("Control de Calidad e Ingeniería de Doblado")
+st.write("Medición y cálculo geométrico")
 
 # --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Configuración de Máquina")
