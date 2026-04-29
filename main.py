@@ -233,6 +233,12 @@ with tabs[2]:
                 col1, col2 = st.columns(2)
                 col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
                 col2.metric("ESPESOR REAL", f"Ga {cal}")
+                
+                # Agregar advertencia del material en estado crítico
+                if mat == "Galvanizado":
+                    st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
+                else:
+                    st.success("🟢 AVISO: Acero Negro maleable. Óptimo para sistemas de escape.")
         
         else:  # estado == "error"
             st.error(diagnostico["mensaje"])
