@@ -10,112 +10,258 @@ st.markdown(
     <style>
     .main { background-color: #f0f2f6; }
     .stButton>button { 
-        width: 100%; border-radius: 10px; height: 3.5em; 
-        background-color: #0e1117; color: white; font-weight: bold;
+        width: 100%; 
+        border-radius: 10px; 
+        height: 3.5em; 
+        background-color: #0e1117; 
+        color: white; 
+        font-weight: bold;
         border: 2px solid #ed1c24;
     }
+    div[data-testid="stMetricValue"],
     div[data-testid="stMetricValue"] * {
-        font-size: 28px; color: inherit !important; font-weight: bold;
+        font-size: 28px;
+        color: inherit !important;
+        font-weight: bold;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- DICCIONARIO DE CAPACIDADES ---
+# --- DICCIONARIO DE CAPACIDADES INDUSTRIALES ---
 CAPACIDADES_INDUSTRIALES = {
-    3.0: {"calibre_seguro": 14, "calibre_critico": 12},
-    5.0: {"calibre_seguro": 12, "calibre_critico": 10},
-    7.5: {"calibre_seguro": 10, "calibre_critico": 8},
-    10.0: {"calibre_seguro": 7, "calibre_critico": 5},
+    3.0: {"calibre_seguro": 14, "calibre_critico": 12, "diametro_max": 2.0},
+    5.0: {"calibre_seguro": 12, "calibre_critico": 10, "diametro_max": 2.5},
+    7.5: {"calibre_seguro": 10, "calibre_critico": 8, "diametro_max": 3.0},
+    10.0: {"calibre_seguro": 7, "calibre_critico": 5, "diametro_max": 4.0},
 }
 
-# --- FUNCIONES DE APOYO ---
-def update_material_callback():
-    """Sincroniza el material seleccionado con el banco de forma inmediata"""
-    st.session_state.banco["mat"] = st.session_state.mat_selector
+# --- INICIALIZACIÓN DE ESTADO DE SESIÓN ---
+if "banco" not in st.session_state:
+    st.session_state.banco = {"pulg": None, "cal": None, "mat": None}
+
+if "potencia_maquina" not in st.session_state:
+    st.session_state.potencia_maquina = 3.0
 
 def decimal_a_fraccion(decimal):
-    fracciones = {0.0: "", 0.125: "1/8", 0.25: "1/4", 0.375: "3/8", 0.5: "1/2", 0.625: "5/8", 0.75: "3/4", 0.875: "7/8"}
+    """Convierte decimales a la fracción comercial más cercana en octavos"""
+    fracciones = {
+        0.0: "",
+        0.125: "1/8",
+        0.25: "1/4",
+        0.375: "3/8",
+        0.5: "1/2",
+        0.625: "5/8",
+        0.75: "3/4",
+        0.875: "7/8",
+    }
     entero = int(decimal)
     residuo = round(decimal - entero, 3)
     cercano = min(fracciones.keys(), key=lambda x: abs(x - residuo))
     frac_txt = fracciones[cercano]
-    return f"{entero} {frac_txt}".strip() if entero > 0 else (frac_txt if frac_txt else "0")
 
-# --- INICIALIZACIÓN DE ESTADO ---
-if "banco" not in st.session_state:
-    st.session_state.banco = {"pulg": None, "cal": None, "mat": None}
+    if entero > 0:
+        return f"{entero} {frac_txt}".strip()
+    return frac_txt if frac_txt else "0"
 
-# --- BARRA LATERAL (Resumen del Banco) ---
-st.sidebar.header("⚙️ Configuración")
-potencia_input = st.sidebar.number_input("Potencia Dobladora (HP):", 3.0, 10.0, 3.0, 0.5)
-st.sidebar.success(f"✅ Sistema: {potencia_input} HP")
+def obtener_potencia_valida(potencia_input):
+    """
+    Redondea la potencia al valor más cercano en el diccionario.
+    Evita KeyError por valores intermedios.
+    """
+    potencias_disponibles = list(CAPACIDADES_INDUSTRIALES.keys())
+    potencia_valida = min(potencias_disponibles, key=lambda x: abs(x - potencia_input))
+    return potencia_valida
 
+def validar_capacidad_maquina(calibre_usuario):
+    """
+    Valida el calibre ingresado contra la capacidad de la máquina.
+    Retorna un diccionario con estado, mensaje y alerta.
+    """
+    potencia = obtener_potencia_valida(st.session_state.potencia_maquina)
+    st.session_state.potencia_maquina = potencia  # Actualizar con valor válido
+    capacidad = CAPACIDADES_INDUSTRIALES[potencia]
+    
+    calibre_num = int(calibre_usuario)
+    
+    # Estado: SEGURO
+    if calibre_num >= capacidad["calibre_seguro"]:
+        return {
+            "estado": "seguro",
+            "mensaje": f"🟢 OPERACIÓN NORMAL - Calibre Ga {calibre_num} dentro de rango seguro para {potencia} HP",
+            "alerta": None
+        }
+    
+    # Estado: CRÍTICO
+    elif calibre_num >= capacidad["calibre_critico"]:
+        return {
+            "estado": "critico",
+            "mensaje": f"⚠️ ADVERTENCIA CRÍTICA",
+            "alerta": f"¡PELIGRO! Riesgo inminente de rotura de sellos hidráulicos y daño estructural para dobladora de {potencia} HP.\n\nCálculo continuará bajo responsabilidad del operador.",
+        }
+    
+    # Estado: EXCEDE CAPACIDAD
+    else:
+        # Buscar potencia mínima recomendada
+        potencia_recomendada = None
+        for hp, specs in sorted(CAPACIDADES_INDUSTRIALES.items()):
+            if calibre_num >= specs["calibre_critico"]:
+                potencia_recomendada = hp
+                break
+        
+        if not potencia_recomendada:
+            potencia_recomendada = max(CAPACIDADES_INDUSTRIALES.keys())
+        
+        return {
+            "estado": "error",
+            "mensaje": f"🚨 ERROR DE CAPACIDAD",
+            "alerta": f"Esta labor requiere una máquina de mayor potencia.\n\nCalibre Ga {calibre_num} INCOMPATIBLE con dobladora de {potencia} HP.\n\n**RECOMENDACIÓN:** Utilizar al menos dobladora de {potencia_recomendada} HP para trabajar Calibre Ga {calibre_num} de forma segura.",
+        }
+
+# --- INTERFAZ PRINCIPAL ---
+st.title("🛠️ Sistema Técnico Marrugo")
+st.write("Control de Calidad e Ingeniería de Doblado")
+
+# --- CONFIGURACIÓN EN BARRA LATERAL ---
+st.sidebar.header("⚙️ Configuración de Máquina")
+potencia_input = st.sidebar.number_input(
+    "Potencia de Dobladora (HP):",
+    min_value=3.0,
+    max_value=10.0,
+    step=0.5,
+    value=3.0,
+    help="Seleccione la potencia de su máquina. Por defecto: 3.0 HP"
+)
+st.session_state.potencia_maquina = potencia_input
+potencia_valida = obtener_potencia_valida(potencia_input)
+
+st.sidebar.success(f"✅ Sistema operando a {potencia_valida} HP")
+
+# Resumen del Banco
 st.sidebar.header("📍 Resumen del Banco")
 st.sidebar.markdown(f"**Tubo:** {st.session_state.banco['pulg'] or '---'}")
 st.sidebar.markdown(f"**Calibre:** {st.session_state.banco['cal'] or '---'}")
-# Aquí usamos directamente el valor del banco que el callback mantiene al día
 st.sidebar.markdown(f"**Material:** {st.session_state.banco['mat'] or '---'}")
 
 if st.sidebar.button("🧹 Limpiar Banco"):
     st.session_state.banco = {"pulg": None, "cal": None, "mat": None}
     st.rerun()
 
+# SELLO DE AUTORÍA
 st.sidebar.markdown("---")
-st.sidebar.markdown("<div style='text-align: center; color: gray; font-size: 0.85em;'>Desarrollado por:<br><strong>Dixtrion Electronic</strong></div>", unsafe_allow_html=True)
+st.sidebar.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 0.85em;'>
+        Desarrollado por:<br>
+        <strong style='color: #0e1117;'>Dixtrion Electronic</strong><br>
+        <a href='mailto:marrugonelson@gmail.com' style='color: #ed1c24; text-decoration: none;'>marrugonelson@gmail.com</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-# --- CUERPO PRINCIPAL ---
-st.title("🛠️ Sistema Técnico Marrugo")
+# Organización por pestañas
 tabs = st.tabs(["📏 Medición", "📐 Calibre", "🚀 Diagnóstico", "📐 Geometría"])
 
+# --- PESTAÑA 1: CONVERSIÓN DE MEDIDA ---
 with tabs[0]:
-    cm = st.number_input("Circunferencia (cm):", min_value=0.0, step=0.1, key="cm_input")
+    st.write("### Centímetros a Pulgadas")
+    cm = st.number_input(
+        "Circunferencia del tubo (cm):", min_value=0.0, step=0.1, key="cm_web"
+    )
     if st.button("Procesar Medida"):
         v_dec = cm / 8
-        st.session_state.banco["pulg"] = f'{v_dec:.2f}" ({decimal_a_fraccion(v_dec)}")'
-        st.rerun()
+        frac = decimal_a_fraccion(v_dec)
+        st.session_state.banco["pulg"] = f'{v_dec:.2f}" ({frac}")'
+        st.success(f"Registrado: {st.session_state.banco['pulg']}")
 
+# --- PESTAÑA 2: IDENTIFICACIÓN DE CALIBRE ---
 with tabs[1]:
-    mm = st.number_input("Espesor (mm):", min_value=0.0, step=0.01, format="%.2f")
+    st.write("### Identificador de Calibre (Ga)")
+    mm = st.number_input(
+        "Espesor de pared (mm):", min_value=0.0, step=0.01, format="%.2f", key="mm_web"
+    )
     if st.button("Identificar Calibre"):
-        ref = {"10": 3.40, "12": 2.60, "14": 1.90, "16": 1.50, "18": 1.20, "20": 0.90}
+        ref = {
+            "10": 3.40,
+            "12": 2.60,
+            "14": 1.90,
+            "16": 1.50,
+            "18": 1.20,
+            "19": 1.00,
+            "20": 0.90,
+        }
         cal = min(ref.items(), key=lambda x: abs(x[1] - mm))[0]
-        st.session_state.banco["cal"] = f"Ga {cal}"
-        st.rerun()
+        st.session_state.banco["cal"] = cal
+        st.success(f"Calibre Detectado: Ga {cal}")
 
+# --- PESTAÑA 3: DIAGNÓSTICO Y SEGURIDAD ---
 with tabs[2]:
     st.write("### Verificación Final")
+
     if st.session_state.banco["pulg"] and st.session_state.banco["cal"]:
-        cal_num = int(st.session_state.banco["cal"].replace("Ga ", ""))
-        cap = CAPACIDADES_INDUSTRIALES.get(potencia_input, CAPACIDADES_INDUSTRIALES[3.0])
+        cal = st.session_state.banco["cal"]
+        diagnostico = validar_capacidad_maquina(cal)
         
-        if cal_num >= cap["calibre_seguro"]:
-            st.success(f"🟢 OPERACIÓN SEGURA para {potencia_input} HP")
-            mostrar_selector = True
-        elif cal_num >= cap["calibre_critico"]:
-            st.warning("⚠️ RIESGO DE SELLOS HIDRÁULICOS")
-            mostrar_selector = st.checkbox("Continuar bajo responsabilidad")
-        else:
-            st.error("🚨 EXCESO DE CAPACIDAD")
-            mostrar_selector = False
-
-        if mostrar_selector:
-            # EL TRUCO: 'on_change' actualiza el banco antes de que se dibuje la barra lateral
-            st.radio(
-                "Seleccione material:", 
-                ["Acero Negro", "Galvanizado"], 
-                key="mat_selector", 
-                on_change=update_material_callback
-            )
+        # Mostrar validación según estado
+        if diagnostico["estado"] == "seguro":
+            st.success(diagnostico["mensaje"])
+            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_seguro")
+            st.session_state.banco["mat"] = mat
             
-            c1, c2 = st.columns(2)
-            c1.metric("ZAPATA", st.session_state.banco["pulg"])
-            c2.metric("CALIBRE", st.session_state.banco["cal"])
-    else:
-        st.warning("⚠️ Ingrese medida y calibre en las pestañas anteriores.")
+            col1, col2 = st.columns(2)
+            col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
+            col2.metric("ESPESOR REAL", f"Ga {cal}")
+            
+            if mat == "Galvanizado":
+                st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
+            else:
+                st.success("🟢 AVISO: Acero Negro maleable. Óptimo para sistemas de escape.")
+        
+        elif diagnostico["estado"] == "critico":
+            st.error(diagnostico["mensaje"])
+            st.markdown(diagnostico["alerta"])
+            
+            if st.checkbox("Continuar bajo responsabilidad del operador"):
+                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_critico")
+                st.session_state.banco["mat"] = mat
+                
+                col1, col2 = st.columns(2)
+                col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
+                col2.metric("ESPESOR REAL", f"Ga {cal}")
+                
+                if mat == "Galvanizado":
+                    st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
+                else:
+                    st.success("🟢 AVISO: Acero Negro maleable. Óptimo para sistemas de escape.")
+        
+        else:  # estado == "error"
+            st.error(diagnostico["mensaje"])
+            st.markdown(diagnostico["alerta"])
 
+    else:
+        st.warning(
+            "⚠️ Faltan datos. Ingrese medida y calibre en las pestañas anteriores."
+        )
+
+# --- PESTAÑA 4: GEOMETRÍA DE PRECISIÓN ---
 with tabs[3]:
-    st.write("### Geometría")
-    v1 = st.number_input("Base A (cm):", min_value=0.0)
-    st.info(f"Diagonal (Cuadrado): {v1 * 1.41:.2f} cm")
+    st.write("### Cálculos de Geometría")
+    op_geo = st.selectbox(
+        "Seleccione herramienta:",
+        [
+            "Altura Triángulo (86.6%)",
+            "Diagonal Cuadrado (1.41)",
+            "Escuadra (Hipotenusa)",
+        ],
+    )
+    v1 = st.number_input("Medida base A (cm):", min_value=0.0)
+
+    if op_geo == "Escuadra (Hipotenusa)":
+        v2 = st.number_input("Medida base B (cm):", min_value=0.0)
+        st.info(f"**Longitud de Hipotenusa:** {math.sqrt(v1**2 + v2**2):.2f} cm")
+    elif "Triángulo" in op_geo:
+        st.info(f"**Altura del Triángulo:** {v1 * 0.866:.2f} cm")
+    else:
+        st.info(f"**Longitud de Diagonal:** {v1 * 1.41:.2f} cm")
