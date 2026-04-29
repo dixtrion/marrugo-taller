@@ -210,7 +210,7 @@ with tabs[2]:
         # Mostrar validación según estado
         if diagnostico["estado"] == "seguro":
             st.success(diagnostico["mensaje"])
-            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"])
+            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_seguro")
             st.session_state.banco["mat"] = mat
             
             col1, col2 = st.columns(2)
@@ -227,7 +227,7 @@ with tabs[2]:
             st.markdown(diagnostico["alerta"])
             
             if st.checkbox("Continuar bajo responsabilidad del operador"):
-                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"])
+                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_critico")
                 st.session_state.banco["mat"] = mat
                 
                 col1, col2 = st.columns(2)
