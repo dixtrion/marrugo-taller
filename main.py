@@ -44,10 +44,6 @@ if "banco" not in st.session_state:
 if "potencia_maquina" not in st.session_state:
     st.session_state.potencia_maquina = 3.0
 
-if "material" not in st.session_state:
-    st.session_state.material = None
-
-
 def decimal_a_fraccion(decimal):
     """Convierte decimales a la fracción comercial más cercana en octavos"""
     fracciones = {
@@ -69,7 +65,6 @@ def decimal_a_fraccion(decimal):
         return f"{entero} {frac_txt}".strip()
     return frac_txt if frac_txt else "0"
 
-
 def obtener_potencia_valida(potencia_input):
     """
     Redondea la potencia al valor más cercano en el diccionario.
@@ -78,7 +73,6 @@ def obtener_potencia_valida(potencia_input):
     potencias_disponibles = list(CAPACIDADES_INDUSTRIALES.keys())
     potencia_valida = min(potencias_disponibles, key=lambda x: abs(x - potencia_input))
     return potencia_valida
-
 
 def validar_capacidad_maquina(calibre_usuario):
     """
@@ -125,7 +119,6 @@ def validar_capacidad_maquina(calibre_usuario):
             "alerta": f"Esta labor requiere una máquina de mayor potencia.\n\nCalibre Ga {calibre_num} INCOMPATIBLE con dobladora de {potencia} HP.\n\n**RECOMENDACIÓN:** Utilizar al menos dobladora de {potencia_recomendada} HP para trabajar Calibre Ga {calibre_num} de forma segura.",
         }
 
-
 # --- INTERFAZ PRINCIPAL ---
 st.title("🛠️ Sistema Técnico Marrugo")
 st.write("Control de Calidad e Ingeniería de Doblado")
@@ -142,16 +135,14 @@ potencia_input = st.sidebar.number_input(
 )
 st.session_state.potencia_maquina = potencia_input
 potencia_valida = obtener_potencia_valida(potencia_input)
-if st.session_state.material:
-    st.session_state.banco["mat"] = st.session_state.material
+
 st.sidebar.success(f"✅ Sistema operando a {potencia_valida} HP")
 
 # Resumen del Banco
 st.sidebar.header("📍 Resumen del Banco")
 st.sidebar.markdown(f"**Tubo:** {st.session_state.banco['pulg'] or '---'}")
 st.sidebar.markdown(f"**Calibre:** {st.session_state.banco['cal'] or '---'}")
-material_actual = st.session_state.material or st.session_state.banco["mat"]
-st.sidebar.markdown(f"**Material:** {material_actual or '---'}")
+st.sidebar.markdown(f"**Material:** {st.session_state.banco['mat'] or '---'}")
 
 if st.sidebar.button("🧹 Limpiar Banco"):
     st.session_state.banco = {"pulg": None, "cal": None, "mat": None}
@@ -216,8 +207,7 @@ with tabs[2]:
         # Mostrar validación según estado
         if diagnostico["estado"] == "seguro":
             st.success(diagnostico["mensaje"])
-            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="material")
-            st.session_state.material = mat
+            mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_seguro")
             st.session_state.banco["mat"] = mat
             
             col1, col2 = st.columns(2)
@@ -234,15 +224,13 @@ with tabs[2]:
             st.markdown(diagnostico["alerta"])
             
             if st.checkbox("Continuar bajo responsabilidad del operador"):
-                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="material")
-                st.session_state.material = mat
+                mat = st.radio("Seleccione material:", ["Acero Negro", "Galvanizado"], key="mat_critico")
                 st.session_state.banco["mat"] = mat
                 
                 col1, col2 = st.columns(2)
                 col1.metric("ZAPATA SUGERIDA", st.session_state.banco["pulg"])
                 col2.metric("ESPESOR REAL", f"Ga {cal}")
                 
-                # Agregar advertencia del material en estado crítico
                 if mat == "Galvanizado":
                     st.warning("⚠️ AVISO: Material rígido. Realizar dobleces con progresión lenta.")
                 else:
