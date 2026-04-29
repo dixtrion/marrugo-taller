@@ -67,12 +67,23 @@ def decimal_a_fraccion(decimal):
     return frac_txt if frac_txt else "0"
 
 
+def obtener_potencia_valida(potencia_input):
+    """
+    Redondea la potencia al valor más cercano en el diccionario.
+    Evita KeyError por valores intermedios.
+    """
+    potencias_disponibles = list(CAPACIDADES_INDUSTRIALES.keys())
+    potencia_valida = min(potencias_disponibles, key=lambda x: abs(x - potencia_input))
+    return potencia_valida
+
+
 def validar_capacidad_maquina(calibre_usuario):
     """
     Valida el calibre ingresado contra la capacidad de la máquina.
     Retorna un diccionario con estado, mensaje y alerta.
     """
-    potencia = st.session_state.potencia_maquina
+    potencia = obtener_potencia_valida(st.session_state.potencia_maquina)
+    st.session_state.potencia_maquina = potencia  # Actualizar con valor válido
     capacidad = CAPACIDADES_INDUSTRIALES[potencia]
     
     calibre_num = int(calibre_usuario)
@@ -127,7 +138,8 @@ potencia_input = st.sidebar.number_input(
     help="Seleccione la potencia de su máquina. Por defecto: 3.0 HP"
 )
 st.session_state.potencia_maquina = potencia_input
-st.sidebar.success(f"✅ Sistema operando a {potencia_input} HP")
+potencia_valida = obtener_potencia_valida(potencia_input)
+st.sidebar.success(f"✅ Sistema operando a {potencia_valida} HP")
 
 # Resumen del Banco
 st.sidebar.header("📍 Resumen del Banco")
